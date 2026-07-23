@@ -10,14 +10,29 @@
 
 <div class="bg-particles"></div>
 
-<div class="container" id="app">
-  <!-- Dynamic content rendered here -->
+<!-- ===== 登录页 ===== -->
+<div class="container" id="loginScreen">
+  <div class="login-card">
+    <div class="logo">📜</div>
+    <h1>文言实词配对大挑战</h1>
+    <p>300个高中必背文言实词 · 65关逐层突破</p>
+    <div class="input-group">
+      <input type="text" id="usernameInput" placeholder="请输入用户名" autocomplete="off" maxlength="20">
+      <button id="loginBtn">登 录</button>
+    </div>
+    <div class="error-msg" id="loginError"></div>
+    <div class="quick-users" id="quickUsers"></div>
+    <div class="login-tip">无需密码，输入即可开始</div>
+  </div>
 </div>
 
-<!-- Toast -->
+<!-- ===== 主应用区 ===== -->
+<div class="container hidden" id="app"></div>
+
+<!-- ===== Toast ===== -->
 <div class="toast" id="toast"></div>
 
-<!-- Modal -->
+<!-- ===== Modal ===== -->
 <div class="modal-overlay" id="modal">
   <div class="modal">
     <div class="modal-icon" id="modalIcon">🎉</div>
@@ -31,17 +46,10 @@
   </div>
 </div>
 
-<!-- Scripts (order matters) -->
+<!-- ===== JS 模块（按顺序加载） ===== -->
 <script src="js/game-data.js"></script>
 <script src="js/user-manager.js"></script>
 <script src="js/game-engine.js"></script>
-<script>
-  // ====== Bootstrap ======
-  // Expose UI actions globally so onclick handlers in rendered HTML can reach them.
-  const GameUI = GameEngine;
-  document.addEventListener('DOMContentLoaded', () => {
-    GameEngine.init();
-  });
-</script>
+
 </body>
 </html>

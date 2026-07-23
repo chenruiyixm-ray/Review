@@ -1,149 +1,173 @@
-// ====== User Manager ======
-// Handles login, multi-user profiles, progress save/load,
-// and import/export of the `userdata` file (no extension).
+/**
+ * user-manager.js
+ * 账号管理：登录 / 登出 / 进度持久化
+ * 数据存储在 localStorage 的 "userdata" 键中（纯文本，每行一个用户）
+ */
 
-const UserManager = (function () {
-  const STORAGE_KEY = 'wenyan_userdata_v1';
-  const CURRENT_USER_KEY = 'wenyan_current_user_v1';
+(function (global) {
+  'use strict';
 
-  // ---------- raw persistence (localStorage) ----------
-  function loadRaw() {
+  const USERDATA_KEY = 'userdata';
+
+  // ===== 工具函数 =====
+
+  function loadAllUsers() {
     try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      const raw = localStorage.getItem(USERDATA_KEY);
+      if (!raw) return {};
+      const users = {};
+      const lines = raw.split('\n');
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx === -1) continue;
+        const name = trimmed.substring(0, eqIdx).trim();
+        const jsonStr = trimmed.substring(eqIdx + 1).trim();
+        if (!name || !jsonStr) continue;
+        try {
+          users[name] = JSON.parse(jsonStr);
+        } catch (e) {
+          console.warn('解析用户数据失败:', name, e);
+        }
+      }
+      return users;
     } catch (e) {
+      console.error('读取 userdata 失败:', e);
       return {};
     }
   }
-  function saveRaw(data) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  }
 
-  // ---------- userdata text format ----------
-  // One line per user:  username=JSON
-  // e.g. 小明={"completed":[1,2],"stats":{}}
-  function exportText() {
-    const data = loadRaw();
-    const lines = [];
-    for (const [name, profile] of Object.entries(data)) {
-      lines.push(name + '=' + JSON.stringify(profile));
+  function saveAllUsers(users) {
+    try {
+      const lines = [];
+      for (const name of Object.keys(users)) {
+        lines.push(name + '=' + JSON.stringify(users[name]));
+      }
+      localStorage.setItem(USERDATA_KEY, lines.join('\n'));
+      return true;
+    } catch (e) {
+      console.error('保存 userdata 失败:', e);
+      return false;
     }
-    return lines.join('\n');
   }
 
-  function importText(text) {
-    const data = loadRaw();
-    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    for (const line of lines) {
-      const eq = line.indexOf('=');
-      if (eq === -1) continue;
-      const name = line.slice(0, eq).trim();
-      const json = line.slice(eq + 1).trim();
-      if (!name) continue;
-      try {
-        const profile = JSON.parse(json);
-        // merge: keep most progress for each user
-        const existing = data[name] || {};
-        const merged = {
-          completed: Array.from(new Set([...(existing.completed || []), ...(profile.completed || [])])),
-          stats: { ...(existing.stats || {}), ...(profile.stats || {}) },
-          lastLogin: Math.max(existing.lastLogin || 0, profile.lastLogin || 0),
-          stars: { ...(existing.stars || {}), ...(profile.stars || {}) }
-        };
-        data[name] = merged;
-      } catch (e) { /* skip bad line */ }
-    }
-    saveRaw(data);
+  function getDefaultUserData() {
+    return {
+      completed: [],   // 已通关的关卡编号数组 [1,2,3,...]
+      stats: {},       // 每关统计 { "1": {correct: 23, wrong: 2}, ... }
+      stars: {},       // 每关星级 { "1": 3, "2": 2, ... }
+      lastLogin: 0
+    };
   }
 
-  // ---------- profile helpers ----------
-  function getProfile(name) {
-    const data = loadRaw();
-    return data[name] || null;
-  }
+  // ===== 当前用户 =====
 
-  function saveProfile(name, profile) {
-    const data = loadRaw();
-    data[name] = profile;
-    saveRaw(data);
-  }
+  let currentUser = null;
 
-  function listUsers() {
-    const data = loadRaw();
-    return Object.entries(data).map(([name, p]) => ({
-      name,
-      completed: (p.completed || []).length,
-      lastLogin: p.lastLogin || 0
-    })).sort((a, b) => b.lastLogin - a.lastLogin);
-  }
-
-  // ---------- current user ----------
   function getCurrentUser() {
-    return localStorage.getItem(CURRENT_USER_KEY) || null;
+    return currentUser;
   }
 
-  function setCurrentUser(name) {
-    if (name) localStorage.setItem(CURRENT_USER_KEY, name);
-    else localStorage.removeItem(CURRENT_USER_KEY);
+  function isLoggedIn() {
+    return currentUser !== null;
   }
 
-  // ---------- login / logout ----------
-  function login(name) {
-    name = (name || '').trim();
-    if (!name) return { ok: false, msg: '请输入用户名' };
-    if (name.includes('=') || name.includes('\n')) return { ok: false, msg: '用户名不能含 = 或换行' };
-    if (name.length > 20) return { ok: false, msg: '用户名最多20个字符' };
+  // ===== 登录 / 登出 =====
 
-    let profile = getProfile(name);
-    if (!profile) {
-      profile = { completed: [], stats: {}, stars: {}, lastLogin: Date.now() };
-      saveProfile(name, profile);
-    } else {
-      profile.lastLogin = Date.now();
-      saveProfile(name, profile);
+  function login(username) {
+    const name = (username || '').trim();
+    if (!name) {
+      return { success: false, message: '请输入用户名' };
     }
-    setCurrentUser(name);
-    return { ok: true, profile };
+    if (name.length > 20) {
+      return { success: false, message: '用户名不能超过20个字符' };
+    }
+    if (name.includes('=') || name.includes('\n') || name.includes('\r')) {
+      return { success: false, message: '用户名不能包含 = 或换行' };
+    }
+
+    const users = loadAllUsers();
+    if (!users[name]) {
+      users[name] = getDefaultUserData();
+    }
+    users[name].lastLogin = Date.now();
+    saveAllUsers(users);
+
+    currentUser = name;
+    return { success: true, message: '登录成功' };
   }
 
   function logout() {
-    setCurrentUser(null);
+    currentUser = null;
   }
 
-  // ---------- progress for current user ----------
-  function getProgress(name) {
-    name = name || getCurrentUser();
-    if (!name) return { completed: [], stats: {}, stars: {} };
-    const p = getProfile(name) || { completed: [], stats: {}, stars: {} };
-    return { completed: p.completed || [], stats: p.stats || {}, stars: p.stars || {} };
+  // ===== 进度读写 =====
+
+  function getProgress() {
+    if (!currentUser) return getDefaultUserData();
+    const users = loadAllUsers();
+    return users[currentUser] || getDefaultUserData();
   }
 
-  function saveProgress(name, progress) {
-    name = name || getCurrentUser();
-    if (!name) return;
-    const p = getProfile(name) || {};
-    p.completed = progress.completed || [];
-    p.stats = progress.stats || {};
-    p.stars = progress.stars || {};
-    p.lastLogin = Date.now();
-    saveProfile(name, p);
+  function saveProgress(data) {
+    if (!currentUser) return false;
+    const users = loadAllUsers();
+    users[currentUser] = { ...data, lastLogin: Date.now() };
+    return saveAllUsers(users);
   }
 
-  function clearProgress(name) {
-    name = name || getCurrentUser();
-    if (!name) return;
-    const p = getProfile(name) || {};
-    p.completed = [];
-    p.stats = {};
-    p.stars = {};
-    p.lastLogin = Date.now();
-    saveProfile(name, p);
+  function markLevelCompleted(levelNum, wrongCount, totalPairs) {
+    const progress = getProgress();
+    if (!progress.completed.includes(levelNum)) {
+      progress.completed.push(levelNum);
+    }
+    if (!progress.stats[levelNum]) {
+      progress.stats[levelNum] = { correct: 0, wrong: 0 };
+    }
+    progress.stats[levelNum].wrong = wrongCount;
+    progress.stats[levelNum].correct = totalPairs;
+
+    // 星级计算
+    let stars = 3;
+    if (wrongCount >= Math.ceil(totalPairs * 0.3)) stars = 2;
+    if (wrongCount >= Math.ceil(totalPairs * 0.5)) stars = 1;
+    progress.stars[levelNum] = Math.max(progress.stars[levelNum] || 0, stars);
+
+    saveProgress(progress);
+    return stars;
   }
 
-  // public API
-  return {
-    login, logout,
-    getCurrentUser, listUsers,
-    getProgress, saveProgress, clearProgress,
-    exportText, importText
+  function resetCurrentUserProgress() {
+    if (!currentUser) return;
+    const users = loadAllUsers();
+    users[currentUser] = getDefaultUserData();
+    users[currentUser].lastLogin = Date.now();
+    saveAllUsers(users);
+  }
+
+  // ===== 快速登录用户列表 =====
+
+  function getRecentUsers() {
+    const users = loadAllUsers();
+    return Object.keys(users)
+      .filter(name => name !== currentUser)
+      .sort((a, b) => (users[b].lastLogin || 0) - (users[a].lastLogin || 0))
+      .slice(0, 6);
+  }
+
+  // ===== 导出公共接口 =====
+
+  global.UserManager = {
+    login,
+    logout,
+    isLoggedIn,
+    getCurrentUser,
+    getProgress,
+    saveProgress,
+    markLevelCompleted,
+    resetCurrentUserProgress,
+    getRecentUsers
   };
-})();
+
+})(window);
