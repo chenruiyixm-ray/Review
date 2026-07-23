@@ -340,6 +340,15 @@ body {
 }
 .reset-btn:hover { border-color: var(--danger); color: var(--danger); }
 
+/* ===== Action Buttons (Export / Import) ===== */
+.action-btn {
+  background: none; border: 1px solid var(--border); color: var(--text-muted);
+  padding: 8px 18px; border-radius: 20px; font-size: 13px; cursor: pointer;
+  transition: var(--transition); display: inline-flex; align-items: center; gap: 4px;
+}
+.action-btn:hover { border-color: var(--primary); color: var(--primary-light); transform: translateY(-1px); }
+.action-btn:active { transform: translateY(0); }
+
 /* ===== Sync status ===== */
 .sync-status {
   position: fixed; bottom: 12px; right: 16px; font-size: 11px;

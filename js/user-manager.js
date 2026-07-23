@@ -270,6 +270,58 @@
     console.info('[userdata] 使用本地缓存');
   });
 
+  // ===== 导入 / 导出 =====
+
+  // 导出：返回 userdata 纯文本（所有用户）
+  function exportData() {
+    var users = memoryStore || loadLocalCache();
+    return serializeUserdata(users);
+  }
+
+  // 导入：用文本覆盖合并当前数据
+  // 策略：导入文件中的用户数据覆盖同名用户；本地有但导入没有的保留
+  // merge=true 时合并，merge=false 时完全替换
+  function importData(text, merge) {
+    var imported = parseUserdata(text);
+    var local = memoryStore || loadLocalCache();
+    var result;
+
+    if (merge) {
+      // 合并模式：导入覆盖同名，其余保留
+      result = {};
+      // 先放本地
+      var localNames = Object.keys(local);
+      for (var i = 0; i < localNames.length; i++) {
+        result[localNames[i]] = local[localNames[i]];
+      }
+      // 导入覆盖
+      var impNames = Object.keys(imported);
+      for (var j = 0; j < impNames.length; j++) {
+        result[impNames[j]] = imported[impNames[j]];
+      }
+    } else {
+      // 替换模式：完全用导入的数据
+      result = imported;
+    }
+
+    memoryStore = result;
+    saveLocalCache(result);
+    // 如果当前登录用户在导入后不存在了，踢回登录页
+    if (currentUser && !result[currentUser]) {
+      currentUser = null;
+      try { localStorage.removeItem(CURRENT_USER_KEY); } catch (e) {}
+    }
+    // 异步同步到服务器
+    pushToServer().catch(function () {
+      console.info('[userdata] 导入后服务器同步失败，数据已保存在本地');
+    });
+    return {
+      success: true,
+      users: Object.keys(result),
+      count: Object.keys(result).length
+    };
+  }
+
   // ===== 导出 =====
   global.UserManager = {
     login: login,
@@ -283,7 +335,10 @@
     getRecentUsers: getRecentUsers,
     // 高级：手动刷新 / 同步
     refresh: fetchFromServer,
-    sync: pushToServer
+    sync: pushToServer,
+    // 导入 / 导出
+    exportData: exportData,
+    importData: importData
   };
 
 })(window);

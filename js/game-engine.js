@@ -139,6 +139,71 @@
     renderStartScreen();
   }
 
+  // ===== 导入 / 导出 =====
+
+  function doExport() {
+    var text = UserManager.exportData();
+    if (!text || text.trim() === '') {
+      showToast('当前没有可导出的数据', 'error');
+      return;
+    }
+    var blob = new Blob([text], { type: 'text/plain' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'userdata';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('已导出 ' + Object.keys(UserManager.getProgress() ? {} : {}).length + ' 位用户数据', 'success');
+    // 更精确地统计
+    var lines = text.trim().split('\n').filter(function (l) { return l.trim(); });
+    showToast('已导出 ' + lines.length + ' 位用户数据 ✓', 'success');
+  }
+
+  function doImport() {
+    var fileInput = document.getElementById('importFile');
+    if (!fileInput) {
+      // 动态创建
+      fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.id = 'importFile';
+      fileInput.accept = '.*';
+      fileInput.style.display = 'none';
+      document.body.appendChild(fileInput);
+    }
+    fileInput.value = ''; // 重置，允许重复选同一文件
+    fileInput.onchange = function (e) {
+      var file = e.target.files && e.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function (ev) {
+        var text = ev.target.result;
+        // 询问合并还是替换
+        var mode = confirm(
+          '导入 userdata\n\n' +
+          '点击「确定」→ 合并模式（导入覆盖同名用户，其余保留）\n' +
+          '点击「取消」→ 替换模式（完全用导入文件替换当前所有数据）'
+        );
+        var result = UserManager.importData(text, mode);
+        if (result.success) {
+          showToast('导入成功！共 ' + result.count + ' 位用户', 'success');
+          // 刷新当前页面
+          if (UserManager.isLoggedIn()) renderStartScreen();
+          else showLogin();
+        } else {
+          showToast('导入失败', 'error');
+        }
+      };
+      reader.onerror = function () {
+        showToast('读取文件失败', 'error');
+      };
+      reader.readAsText(file);
+    };
+    fileInput.click();
+  }
+
   // ===== 登录页事件（元素可能不存在于测试环境，需判空） =====
   if (loginBtn) loginBtn.addEventListener('click', function () { attemptLogin(usernameInput.value); });
   if (usernameInput) {
@@ -174,8 +239,14 @@
           '<div class="progress-text"><span>已通关 ' + completedCount + '/' + GAME_DATA.length + '</span><span>' + pct + '%</span></div>' +
         '</div>' +
         '<button class="start-btn" id="startBtn">开始挑战 🚀</button>' +
-        '<div><button class="reset-btn" id="resetBtn">🔄 重置我的进度</button></div>' +
-      '</div>';
+        '<div style="margin-top:20px;display:flex;justify-content:center;gap:12px;flex-wrap:wrap;">' +
+          '<button class="reset-btn" id="resetBtn">🔄 重置我的进度</button>' +
+          '<button class="action-btn" id="exportBtn">💾 导出 userdata</button>' +
+          '<button class="action-btn" id="importBtn">📂 导入 userdata</button>' +
+        '</div>' +
+      '</div>' +
+      '<input type="file" id="importFile" accept=".*" style="display:none">' +
+      '';
 
     document.getElementById('startBtn').addEventListener('click', startGame);
     document.getElementById('resetBtn').addEventListener('click', function () {
@@ -188,6 +259,10 @@
     document.getElementById('logoutBtn').addEventListener('click', function () {
       UserManager.logout(); showLogin();
     });
+    var exportBtn = document.getElementById('exportBtn');
+    if (exportBtn) exportBtn.addEventListener('click', doExport);
+    var importBtn = document.getElementById('importBtn');
+    if (importBtn) importBtn.addEventListener('click', doImport);
   }
 
   // ===== 选关页 =====
@@ -225,7 +300,11 @@
       html += '<button class="' + cls + '" data-level="' + lv.level + '"' + (isLocked ? ' disabled' : '') + '>' + lv.level + '</button>';
     }
 
-    html += '</div><div style="text-align:center;margin-top:24px;"><button class="reset-btn" id="resetBtn2">🔄 重置我的进度</button></div>';
+    html += '</div><div style="text-align:center;margin-top:24px;display:flex;justify-content:center;gap:12px;flex-wrap:wrap;">' +
+      '<button class="reset-btn" id="resetBtn2">🔄 重置我的进度</button>' +
+      '<button class="action-btn" id="exportBtn2">💾 导出 userdata</button>' +
+      '<button class="action-btn" id="importBtn2">📂 导入 userdata</button>' +
+      '</div>';
     app.innerHTML = html;
 
     [].forEach.call(app.querySelectorAll('.level-btn'), function (btn) {
@@ -244,6 +323,10 @@
     document.getElementById('logoutBtn2').addEventListener('click', function () {
       UserManager.logout(); showLogin();
     });
+    var exportBtn2 = document.getElementById('exportBtn2');
+    if (exportBtn2) exportBtn2.addEventListener('click', doExport);
+    var importBtn2 = document.getElementById('importBtn2');
+    if (importBtn2) importBtn2.addEventListener('click', doImport);
   }
 
   // ===== 进入关卡 =====
