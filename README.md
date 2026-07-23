@@ -6,42 +6,120 @@
 
 ```
 wenyan-game/
-├── index.html              入口页面
-├── README.md               说明文档
+├── index.html              入口页面（含 SVG favicon）
+├── README.md               本文档
 ├── css/
-│   └── styles.css          样式
-└── js/
-    ├── game-data.js        65关游戏数据（自动生成）
-    ├── user-manager.js     账号管理·进度持久化
-    └── game-engine.js      游戏引擎·渲染·配对逻辑
+│   └── styles.css          暗色主题样式
+├── js/
+│   ├── game-data.js        65关游戏数据（53KB）
+│   ├── user-manager.js     账号·进度·userdata 同步
+│   └── game-engine.js      游戏引擎·UI·配对逻辑
+└── userdata                用户数据文件（服务器上，自动生成）
 ```
 
-## 部署方式
+## 部署说明
 
-纯静态文件，三种方式任选：
+### 纯静态托管（GitHub Pages / Vercel 等）
 
-1. **直接打开** — 浏览器双击 `index.html`
-2. **GitHub Pages** — 上传整个文件夹，Settings → Pages → 选择分支 → Save
-3. **其他静态托管** — Vercel / Netlify / 任意静态服务
+直接将 `wenyan-game/` 目录部署即可。
 
-## 账号系统
+> ⚠️ **注意**：纯静态环境**不支持服务端写入**。此时 userdata 会降级为
+> 仅保存在浏览器 localStorage，换设备/清缓存会丢失。
+> 如需跨设备同步，请使用下面的后端方案。
 
-- 输入用户名（无需密码）即可登录，自动创建账号
-- 每个用户独立进度，互不影响
-- 进度自动保存到浏览器 `localStorage`（key: `userdata`）
-- 已登录过的用户显示为快捷标签，点击即登
-- 数据格式（纯文本，每行一个用户）：
+### 带后端（推荐，支持 userdata 文件持久化）
+
+需要服务器支持 **PHP / Node / Python** 等任意一种后端。
+游戏通过两个 HTTP 请求读写 `userdata` 文件：
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `GET`  | `/userdata`  | 返回文件全文（纯文本） |
+| `POST` | `/userdata`  | body 为文件全文，服务端覆盖写入 |
+
+#### 示例：PHP 版接口（`api/userdata.php`）
+
+```php
+<?php
+header('Content-Type: text/plain; charset=utf-8');
+$file = __DIR__ . '/../userdata';
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    if (file_exists($file)) {
+        echo file_get_contents($file);
+    }
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $data = file_get_contents('php://input');
+    // 简单校验：每行必须含 = 号
+    $lines = explode("\n", $data);
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line !== '' && strpos($line, '=') === false) {
+            http_response_code(400);
+            echo 'Invalid format';
+            exit;
+        }
+    }
+    file_put_contents($file, $data, LOCK_EX);
+    echo 'OK';
+    exit;
+}
+```
+
+> 把 `index.html` 中 `USERDATA_URL` 改为 `'api/userdata.php'` 即可。
+
+#### 示例：Node.js 版接口（Express）
+
+```js
+const express = require('express');
+const fs = require('fs');
+const app = express();
+app.use(express.text({ type: '*/*' }));
+
+const FILE = './userdata';
+
+app.get('/userdata', (req, res) => {
+  if (fs.existsSync(FILE)) res.send(fs.readFileSync(FILE, 'utf8'));
+  else res.send('');
+});
+
+app.post('/userdata', (req, res) => {
+  fs.writeFileSync(FILE, req.body, 'utf8');
+  res.send('OK');
+});
+
+app.use(express.static('wenyan-game'));
+app.listen(3000);
+```
+
+### userdata 文件格式
+
+纯文本，每行一个用户，`用户名=JSON`：
 
 ```
 小明={"completed":[1,2,3],"stats":{"1":{"correct":23,"wrong":2}},"stars":{"1":3},"lastLogin":1718000000}
+小红={"completed":[],"stats":{},"stars":{},"lastLogin":1718000000}
 ```
+
+首次部署时创建一个**空文件**即可（或完全不创建，会自动生成）。
+
+## 账号系统
+
+- 输入用户名（无需密码）→ 自动创建 / 登录
+- 每个用户独立进度，互不影响
+- 已登录用户显示为快捷标签，点击即登
+- 进度同时写入 **服务器 userdata** + **本地 localStorage 缓存**
+- 离线时自动降级为本地缓存，恢复网络后自动同步
 
 ## 游戏玩法
 
 - 左侧文言文例句（加点字高亮），右侧词义选项
 - 点击一句 + 点击一个词义 = 完成一次配对
 - 正确 → 绿色锁定；错误 → 红色抖动，可重试
-- 每关完成 → 撒花 + ⭐星级（按错误率：≤30% 3星，≤50% 2星，其他1星）
+- 每关完成 → 撒花 + ⭐星级评定
 - 进度自动保存，刷新/关闭不丢失
 
 ## 重置进度

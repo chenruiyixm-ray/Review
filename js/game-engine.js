@@ -8,58 +8,61 @@
   'use strict';
 
   // ===== DOM 引用 =====
+  var loginScreen = document.getElementById('loginScreen');
+  var app = document.getElementById('app');
+  var usernameInput = document.getElementById('usernameInput');
+  var loginBtn = document.getElementById('loginBtn');
+  var loginError = document.getElementById('loginError');
+  var quickUsersEl = document.getElementById('quickUsers');
 
-  const loginScreen = document.getElementById('loginScreen');
-  const app = document.getElementById('app');
-  const usernameInput = document.getElementById('usernameInput');
-  const loginBtn = document.getElementById('loginBtn');
-  const loginError = document.getElementById('loginError');
-  const quickUsersEl = document.getElementById('quickUsers');
-
-  const toast = document.getElementById('toast');
-  const modal = document.getElementById('modal');
-  const modalIcon = document.getElementById('modalIcon');
-  const modalTitle = document.getElementById('modalTitle');
-  const modalStars = document.getElementById('modalStars');
-  const modalDesc = document.getElementById('modalDesc');
-  const modalBtn1 = document.getElementById('modalBtn1');
-  const modalBtn2 = document.getElementById('modalBtn2');
+  var toast = document.getElementById('toast');
+  var modal = document.getElementById('modal');
+  var modalIcon = document.getElementById('modalIcon');
+  var modalTitle = document.getElementById('modalTitle');
+  var modalStars = document.getElementById('modalStars');
+  var modalDesc = document.getElementById('modalDesc');
+  var modalBtn1 = document.getElementById('modalBtn1');
+  var modalBtn2 = document.getElementById('modalBtn2');
 
   // ===== 游戏状态 =====
-
-  let currentLevel = null;
-  let currentLevelData = null;
-  let leftItems = [];
-  let rightItems = [];
-  let selectedLeft = null;
-  let selectedRight = null;
-  let matchedCount = 0;
-  let wrongCount = 0;
-  let totalPairs = 0;
-  let isProcessing = false;
+  var currentLevel = null;
+  var currentLevelData = null;
+  var leftItems = [];
+  var rightItems = [];
+  var selectedLeft = null;
+  var selectedRight = null;
+  var matchedCount = 0;
+  var wrongCount = 0;
+  var totalPairs = 0;
+  var isProcessing = false;
 
   // ===== 工具函数 =====
-
   function shuffle(arr) {
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
+    var a = arr.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      a[i] = a[j]; a[j] = arr[i]; arr[i] = a[i]; // safe swap
+    }
+    // correct shuffle:
+    for (var k = a.length - 1; k > 0; k--) {
+      var r = Math.floor(Math.random() * (k + 1));
+      var tmp = a[k]; a[k] = a[r]; a[r] = tmp;
     }
     return a;
   }
 
   function escapeHtml(s) {
-    const div = document.createElement('div');
+    var div = document.createElement('div');
     div.textContent = s;
     return div.innerHTML;
   }
 
   function highlightChar(sentence, chars) {
-    const charList = (chars || '').split('、').map(c => c.trim()).filter(c => c);
-    let result = escapeHtml(sentence);
-    for (const ch of charList) {
-      const idx = result.indexOf(ch);
+    var charList = (chars || '').split('、').map(function (c) { return c.trim(); }).filter(Boolean);
+    var result = escapeHtml(sentence);
+    for (var i = 0; i < charList.length; i++) {
+      var ch = charList[i];
+      var idx = result.indexOf(ch);
       if (idx >= 0) {
         result = result.substring(0, idx)
           + '<span class="highlight">' + ch + '</span>'
@@ -75,15 +78,32 @@
     setTimeout(function () { toast.classList.remove('show'); }, 1800);
   }
 
-  // ===== 登录流程 =====
+  // ===== 同步状态指示 =====
+  function setSyncStatus(text) {
+    var el = document.getElementById('syncStatus');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'syncStatus';
+      el.className = 'sync-status';
+      document.body.appendChild(el);
+    }
+    el.textContent = text;
+  }
 
+  // ===== 登录流程 =====
   function attemptLogin(name) {
-    const result = UserManager.login(name);
+    var result = UserManager.login(name);
     if (!result.success) {
       loginError.textContent = result.message;
+      // 震动输入框
+      usernameInput.style.borderColor = 'var(--danger)';
+      usernameInput.style.animation = 'shake .4s ease';
+      setTimeout(function () { usernameInput.style.animation = ''; }, 400);
       return;
     }
     loginError.textContent = '';
+    usernameInput.style.borderColor = '';
+    showToast('欢迎回来，' + name + '！', 'success');
     showApp();
   }
 
@@ -94,10 +114,11 @@
     usernameInput.value = '';
     usernameInput.focus();
     renderQuickUsers();
+    setSyncStatus('');
   }
 
   function renderQuickUsers() {
-    const recent = UserManager.getRecentUsers();
+    var recent = UserManager.getRecentUsers();
     if (recent.length === 0) {
       quickUsersEl.innerHTML = '';
       return;
@@ -105,8 +126,7 @@
     quickUsersEl.innerHTML = recent.map(function (name) {
       return '<span class="quick-user" data-name="' + escapeHtml(name) + '">' + escapeHtml(name) + '</span>';
     }).join('');
-    // 事件委托
-    quickUsersEl.querySelectorAll('.quick-user').forEach(function (el) {
+    [].forEach.call(quickUsersEl.querySelectorAll('.quick-user'), function (el) {
       el.addEventListener('click', function () {
         attemptLogin(el.getAttribute('data-name'));
       });
@@ -119,115 +139,101 @@
     renderStartScreen();
   }
 
-  // ===== 登录页事件绑定 =====
-
-  loginBtn.addEventListener('click', function () {
-    attemptLogin(usernameInput.value);
-  });
-
-  usernameInput.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      attemptLogin(usernameInput.value);
-    }
-  });
-
-  usernameInput.addEventListener('input', function () {
-    if (loginError.textContent) loginError.textContent = '';
-  });
+  // ===== 登录页事件（元素可能不存在于测试环境，需判空） =====
+  if (loginBtn) loginBtn.addEventListener('click', function () { attemptLogin(usernameInput.value); });
+  if (usernameInput) {
+    usernameInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); attemptLogin(usernameInput.value); }
+    });
+    usernameInput.addEventListener('input', function () {
+      if (loginError && loginError.textContent) { loginError.textContent = ''; }
+      usernameInput.style.borderColor = '';
+    });
+  }
 
   // ===== 开始页 =====
-
   function renderStartScreen() {
-    const progress = UserManager.getProgress();
-    const completedCount = (progress.completed || []).length;
-    const pct = Math.round(completedCount / GAME_DATA.length * 100);
-    const username = UserManager.getCurrentUser() || '';
+    var progress = UserManager.getProgress();
+    var completedCount = (progress.completed || []).length;
+    var pct = Math.round(completedCount / GAME_DATA.length * 100);
+    var username = UserManager.getCurrentUser() || '';
 
-    app.innerHTML = `
-      <div class="header">
-        <h1>📜 文言实词配对大挑战</h1>
-        <p>300个高中必背文言实词 · 65关逐层突破</p>
-      </div>
-      <div class="user-bar" style="justify-content:center;margin-bottom:16px;">
-        <span class="username-tag">👤 ${escapeHtml(username)}</span>
-        <button class="logout-btn" id="logoutBtn" title="退出登录">🚪</button>
-      </div>
-      <div class="start-screen fade-in">
-        <div class="big-icon">🎓</div>
-        <h2>准备好了吗？</h2>
-        <p>每一关会给出若干文言例句和加点字，你需要将左侧的句子与右侧的正确词义配对。打乱顺序，考验真功夫！</p>
-        <div class="progress-section" style="max-width:400px;margin:0 auto 20px;">
-          <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
-          <div class="progress-text"><span>已通关 ${completedCount}/${GAME_DATA.length}</span><span>${pct}%</span></div>
-        </div>
-        <button class="start-btn" id="startBtn">开始挑战 🚀</button>
-        <div><button class="reset-btn" id="resetBtn">🔄 重置我的进度</button></div>
-      </div>
-    `;
+    app.innerHTML =
+      '<div class="header"><h1>📜 文言实词配对大挑战</h1>' +
+      '<p>300个高中必背文言实词 · 65关逐层突破</p></div>' +
+      '<div class="user-bar" style="justify-content:center;margin-bottom:16px;">' +
+        '<span class="username-tag">👤 ' + escapeHtml(username) + '</span>' +
+        '<button class="logout-btn" id="logoutBtn" title="退出登录">🚪</button>' +
+      '</div>' +
+      '<div class="start-screen fade-in">' +
+        '<div class="big-icon">🎓</div>' +
+        '<h2>准备好了吗？</h2>' +
+        '<p>每一关会给出若干文言例句和加点字，你需要将左侧的句子与右侧的正确词义配对。打乱顺序，考验真功夫！</p>' +
+        '<div class="progress-section" style="max-width:400px;margin:0 auto 20px;">' +
+          '<div class="progress-bar-bg"><div class="progress-bar-fill" style="width:' + pct + '%"></div></div>' +
+          '<div class="progress-text"><span>已通关 ' + completedCount + '/' + GAME_DATA.length + '</span><span>' + pct + '%</span></div>' +
+        '</div>' +
+        '<button class="start-btn" id="startBtn">开始挑战 🚀</button>' +
+        '<div><button class="reset-btn" id="resetBtn">🔄 重置我的进度</button></div>' +
+      '</div>';
 
     document.getElementById('startBtn').addEventListener('click', startGame);
     document.getElementById('resetBtn').addEventListener('click', function () {
-      if (confirm('确定要重置当前账号的全部进度吗？所有通关记录和统计数据将被清除。')) {
+      if (confirm('确定要重置当前账号的全部进度吗？')) {
         UserManager.resetCurrentUserProgress();
         renderStartScreen();
         showToast('进度已重置', 'success');
       }
     });
     document.getElementById('logoutBtn').addEventListener('click', function () {
-      UserManager.logout();
-      showLogin();
+      UserManager.logout(); showLogin();
     });
   }
 
   // ===== 选关页 =====
-
   function renderLevelSelect() {
-    const progress = UserManager.getProgress();
-    const completed = progress.completed || [];
-    const completedCount = completed.length;
-    const pct = Math.round(completedCount / GAME_DATA.length * 100);
-    const maxUnlocked = completed.length > 0 ? Math.max.apply(null, completed) : 0;
-    const nextLevel = maxUnlocked + 1;
-    const username = UserManager.getCurrentUser() || '';
+    var progress = UserManager.getProgress();
+    var completed = progress.completed || [];
+    var completedCount = completed.length;
+    var pct = Math.round(completedCount / GAME_DATA.length * 100);
+    var maxUnlocked = completed.length > 0 ? Math.max.apply(null, completed) : 0;
+    var nextLevel = maxUnlocked + 1;
+    var username = UserManager.getCurrentUser() || '';
 
-    let html = `
-      <div class="header">
-        <h1>📜 选择关卡</h1>
-        <p>共 ${GAME_DATA.length} 关 · 已通关 ${completedCount} 关</p>
-      </div>
-      <div class="user-bar" style="justify-content:center;margin-bottom:12px;">
-        <span class="username-tag">👤 ${escapeHtml(username)}</span>
-        <button class="logout-btn" id="logoutBtn2" title="退出登录">🚪</button>
-      </div>
-      <div class="progress-section">
-        <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
-        <div class="progress-text"><span>总进度</span><span>${pct}%</span></div>
-      </div>
-      <div class="level-grid fade-in">
-    `;
+    var html =
+      '<div class="header"><h1>📜 选择关卡</h1>' +
+      '<p>共 ' + GAME_DATA.length + ' 关 · 已通关 ' + completedCount + ' 关</p></div>' +
+      '<div class="user-bar" style="justify-content:center;margin-bottom:12px;">' +
+        '<span class="username-tag">👤 ' + escapeHtml(username) + '</span>' +
+        '<button class="logout-btn" id="logoutBtn2" title="退出登录">🚪</button>' +
+      '</div>' +
+      '<div class="progress-section">' +
+        '<div class="progress-bar-bg"><div class="progress-bar-fill" style="width:' + pct + '%"></div></div>' +
+        '<div class="progress-text"><span>总进度</span><span>' + pct + '%</span></div>' +
+      '</div>' +
+      '<div class="level-grid fade-in">';
 
-    for (const lv of GAME_DATA) {
-      const isCompleted = completed.indexOf(lv.level) !== -1;
-      const isLocked = lv.level > nextLevel;
-      const isCurrent = lv.level === nextLevel;
-      let cls = 'level-btn';
+    for (var i = 0; i < GAME_DATA.length; i++) {
+      var lv = GAME_DATA[i];
+      var isCompleted = completed.indexOf(lv.level) !== -1;
+      var isLocked = lv.level > nextLevel;
+      var isCurrent = lv.level === nextLevel;
+      var cls = 'level-btn';
       if (isCompleted) cls += ' completed';
       if (isLocked) cls += ' locked';
       if (isCurrent) cls += ' current';
-      html += `<button class="${cls}" data-level="${lv.level}" ${isLocked ? 'disabled' : ''}>${lv.level}</button>`;
+      html += '<button class="' + cls + '" data-level="' + lv.level + '"' + (isLocked ? ' disabled' : '') + '>' + lv.level + '</button>';
     }
 
-    html += `</div><div style="text-align:center;margin-top:24px;"><button class="reset-btn" id="resetBtn2">🔄 重置我的进度</button></div>`;
+    html += '</div><div style="text-align:center;margin-top:24px;"><button class="reset-btn" id="resetBtn2">🔄 重置我的进度</button></div>';
     app.innerHTML = html;
 
-    app.querySelectorAll('.level-btn').forEach(function (btn) {
+    [].forEach.call(app.querySelectorAll('.level-btn'), function (btn) {
       btn.addEventListener('click', function () {
         if (btn.disabled) return;
         enterLevel(parseInt(btn.getAttribute('data-level'), 10));
       });
     });
-
     document.getElementById('resetBtn2').addEventListener('click', function () {
       if (confirm('确定要重置当前账号的全部进度吗？')) {
         UserManager.resetCurrentUserProgress();
@@ -236,231 +242,178 @@
       }
     });
     document.getElementById('logoutBtn2').addEventListener('click', function () {
-      UserManager.logout();
-      showLogin();
+      UserManager.logout(); showLogin();
     });
   }
 
   // ===== 进入关卡 =====
-
   function enterLevel(levelNum) {
-    const lv = GAME_DATA.find(function (d) { return d.level === levelNum; });
+    var lv = null;
+    for (var i = 0; i < GAME_DATA.length; i++) {
+      if (GAME_DATA[i].level === levelNum) { lv = GAME_DATA[i]; break; }
+    }
     if (!lv) return;
     currentLevel = levelNum;
     currentLevelData = lv;
     totalPairs = lv.sentences.length;
 
-    leftItems = [];
-    rightItems = [];
-    lv.sentences.forEach(function (item, idx) {
-      const leftId = 'L' + idx;
-      const rightId = 'R' + idx;
+    leftItems = []; rightItems = [];
+    for (var idx = 0; idx < lv.sentences.length; idx++) {
+      var item = lv.sentences[idx];
+      var leftId = 'L' + idx, rightId = 'R' + idx;
       leftItems.push({ id: leftId, text: item[0], answerId: rightId, matched: false });
       rightItems.push({ id: rightId, text: item[1], matchId: leftId, matched: false });
-    });
-
+    }
     leftItems = shuffle(leftItems);
     rightItems = shuffle(rightItems);
-    selectedLeft = null;
-    selectedRight = null;
-    matchedCount = 0;
-    wrongCount = 0;
-    isProcessing = false;
+    selectedLeft = null; selectedRight = null;
+    matchedCount = 0; wrongCount = 0; isProcessing = false;
 
     renderGameScreen();
   }
 
-  // ===== 游戏页渲染 =====
-
+  // ===== 游戏页 =====
   function renderGameScreen() {
-    const lv = currentLevelData;
-    const remaining = totalPairs - matchedCount;
-    const username = UserManager.getCurrentUser() || '';
+    var lv = currentLevelData;
+    var remaining = totalPairs - matchedCount;
+    var username = UserManager.getCurrentUser() || '';
 
-    let html = `
-      <div class="game-screen" style="display:block;">
-        <div class="game-header">
-          <div class="game-header-left">
-            <button class="back-btn" id="backBtn" title="返回选关">←</button>
-            <div>
-              <div class="level-title">第 ${lv.level} 关</div>
-              <div class="level-chars">实词：${escapeHtml(lv.character)}</div>
-            </div>
-          </div>
-          <div class="user-bar">
-            <span class="username-tag">👤 ${escapeHtml(username)}</span>
-            <button class="logout-btn" id="logoutBtn3" title="退出登录">🚪</button>
-          </div>
-          <div class="game-stats">
-            <div class="stat-item">剩余 <span class="stat-value">${remaining}</span></div>
-            <div class="stat-item">错误 <span class="stat-value wrong">${wrongCount}</span></div>
-          </div>
-        </div>
-        <div class="match-container">
-          <div>
-            <div class="match-column-title">📖 例句（点击选择）</div>
-            <div class="match-list">
-    `;
+    var html =
+      '<div class="game-screen" style="display:block;">' +
+        '<div class="game-header">' +
+          '<div class="game-header-left">' +
+            '<button class="back-btn" id="backBtn" title="返回选关">←</button>' +
+            '<div><div class="level-title">第 ' + lv.level + ' 关</div>' +
+            '<div class="level-chars">实词：' + escapeHtml(lv.character) + '</div></div>' +
+          '</div>' +
+          '<div class="user-bar">' +
+            '<span class="username-tag">👤 ' + escapeHtml(username) + '</span>' +
+            '<button class="logout-btn" id="logoutBtn3" title="退出登录">🚪</button>' +
+          '</div>' +
+          '<div class="game-stats">' +
+            '<div class="stat-item">剩余 <span class="stat-value">' + remaining + '</span></div>' +
+            '<div class="stat-item">错误 <span class="stat-value wrong">' + wrongCount + '</span></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="match-container">' +
+          '<div><div class="match-column-title">📖 例句（点击选择）</div><div class="match-list">';
 
-    leftItems.forEach(function (item) {
-      let cls = 'match-item';
-      if (item.matched) cls += ' matched';
-      if (selectedLeft === item.id) cls += ' selected';
-      html += `<div class="${cls}" data-id="${item.id}" data-side="left">
-        <div class="sentence">${highlightChar(item.text, lv.character)}</div>
-      </div>`;
-    });
+    for (var a = 0; a < leftItems.length; a++) {
+      var li = leftItems[a];
+      var cls = 'match-item' + (li.matched ? ' matched' : '') + (selectedLeft === li.id ? ' selected' : '');
+      html += '<div class="' + cls + '" data-id="' + li.id + '" data-side="left"><div class="sentence">' + highlightChar(li.text, lv.character) + '</div></div>';
+    }
 
-    html += `</div></div><div class="match-arrow">⇄</div><div>
-      <div class="match-column-title">📝 词义（点击配对）</div>
-      <div class="match-list">`;
+    html += '</div></div><div class="match-arrow">⇄</div><div><div class="match-column-title">📝 词义（点击配对）</div><div class="match-list">';
 
-    rightItems.forEach(function (item) {
-      let cls = 'match-item';
-      if (item.matched) cls += ' matched';
-      if (selectedRight === item.id) cls += ' selected';
-      html += `<div class="${cls}" data-id="${item.id}" data-side="right">
-        <div>${escapeHtml(item.text)}</div>
-      </div>`;
-    });
+    for (var b = 0; b < rightItems.length; b++) {
+      var ri = rightItems[b];
+      var cls2 = 'match-item' + (ri.matched ? ' matched' : '') + (selectedRight === ri.id ? ' selected' : '');
+      html += '<div class="' + cls2 + '" data-id="' + ri.id + '" data-side="right"><div>' + escapeHtml(ri.text) + '</div></div>';
+    }
 
-    html += `</div></div></div></div>`;
+    html += '</div></div></div></div>';
     app.innerHTML = html;
 
-    // 绑定事件
-    app.querySelectorAll('.match-item').forEach(function (el) {
+    [].forEach.call(app.querySelectorAll('.match-item'), function (el) {
       el.addEventListener('click', function () {
-        const id = el.getAttribute('data-id');
-        const side = el.getAttribute('data-side');
-        selectItem(id, side);
+        selectItem(el.getAttribute('data-id'), el.getAttribute('data-side'));
       });
     });
-
     document.getElementById('backBtn').addEventListener('click', renderLevelSelect);
-    const logoutBtn3 = document.getElementById('logoutBtn3');
-    if (logoutBtn3) {
-      logoutBtn3.addEventListener('click', function () {
-        UserManager.logout();
-        showLogin();
-      });
-    }
+    var lb3 = document.getElementById('logoutBtn3');
+    if (lb3) lb3.addEventListener('click', function () { UserManager.logout(); showLogin(); });
   }
 
-  // ===== 选择逻辑 =====
-
+  // ===== 选择 & 配对 =====
   function selectItem(id, side) {
     if (isProcessing) return;
-
     if (side === 'left') {
-      const item = leftItems.find(function (i) { return i.id === id; });
-      if (!item || item.matched) return;
+      var l = null;
+      for (var i = 0; i < leftItems.length; i++) if (leftItems[i].id === id) { l = leftItems[i]; break; }
+      if (!l || l.matched) return;
       selectedLeft = id;
     } else {
-      const item = rightItems.find(function (i) { return i.id === id; });
-      if (!item || item.matched) return;
+      var r = null;
+      for (var j = 0; j < rightItems.length; j++) if (rightItems[j].id === id) { r = rightItems[j]; break; }
+      if (!r || r.matched) return;
       selectedRight = id;
     }
-
     renderGameScreen();
-
-    if (selectedLeft && selectedRight) {
-      checkMatch();
-    }
+    if (selectedLeft && selectedRight) checkMatch();
   }
 
   function checkMatch() {
     isProcessing = true;
-    const left = leftItems.find(function (i) { return i.id === selectedLeft; });
-    const right = rightItems.find(function (i) { return i.id === selectedRight; });
+    var left = null, right = null;
+    for (var i = 0; i < leftItems.length; i++) if (leftItems[i].id === selectedLeft) { left = leftItems[i]; break; }
+    for (var j = 0; j < rightItems.length; j++) if (rightItems[j].id === selectedRight) { right = rightItems[j]; break; }
 
     if (left.answerId === right.id) {
-      // 正确
-      left.matched = true;
-      right.matched = true;
-      matchedCount++;
+      left.matched = true; right.matched = true; matchedCount++;
       showToast('✓ 配对正确！', 'success');
 
-      const progress = UserManager.getProgress();
-      if (!progress.stats[currentLevel]) progress.stats[currentLevel] = { correct: 0, wrong: 0 };
-      progress.stats[currentLevel].correct++;
-      UserManager.saveProgress(progress);
+      var prog = UserManager.getProgress();
+      if (!prog.stats[currentLevel]) prog.stats[currentLevel] = { correct: 0, wrong: 0 };
+      prog.stats[currentLevel].correct++;
+      UserManager.saveProgress(prog);
 
-      selectedLeft = null;
-      selectedRight = null;
-      isProcessing = false;
-
-      if (matchedCount === totalPairs) {
-        setTimeout(completeLevel, 600);
-      } else {
-        renderGameScreen();
-      }
+      selectedLeft = null; selectedRight = null; isProcessing = false;
+      if (matchedCount === totalPairs) setTimeout(completeLevel, 600);
+      else renderGameScreen();
     } else {
-      // 错误
       wrongCount++;
-      const progress = UserManager.getProgress();
-      if (!progress.stats[currentLevel]) progress.stats[currentLevel] = { correct: 0, wrong: 0 };
-      progress.stats[currentLevel].wrong++;
-      UserManager.saveProgress(progress);
-
+      var prog2 = UserManager.getProgress();
+      if (!prog2.stats[currentLevel]) prog2.stats[currentLevel] = { correct: 0, wrong: 0 };
+      prog2.stats[currentLevel].wrong++;
+      UserManager.saveProgress(prog2);
       showToast('✗ 再想想看', 'error');
 
-      const leftEl = app.querySelector('.match-item[data-id="' + left.id + '"]');
-      const rightEl = app.querySelector('.match-item[data-id="' + right.id + '"]');
+      var leftEl = app.querySelector('.match-item[data-id="' + left.id + '"]');
+      var rightEl = app.querySelector('.match-item[data-id="' + right.id + '"]');
       if (leftEl) leftEl.classList.add('wrong');
       if (rightEl) rightEl.classList.add('wrong');
-
       setTimeout(function () {
         if (leftEl) leftEl.classList.remove('wrong', 'selected');
         if (rightEl) rightEl.classList.remove('wrong', 'selected');
-        selectedLeft = null;
-        selectedRight = null;
-        isProcessing = false;
+        selectedLeft = null; selectedRight = null; isProcessing = false;
         renderGameScreen();
       }, 600);
     }
   }
 
   // ===== 关卡完成 =====
-
   function completeLevel() {
-    const stars = UserManager.markLevelCompleted(currentLevel, wrongCount, totalPairs);
-    const isLast = currentLevel === GAME_DATA.length;
-    const starStr = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
+    var stars = UserManager.markLevelCompleted(currentLevel, wrongCount, totalPairs);
+    var isLast = currentLevel === GAME_DATA.length;
+    var starStr = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
 
     modalIcon.textContent = isLast ? '🏆' : '🎉';
-    modalTitle.textContent = isLast ? '全部通关！' : `第 ${currentLevel} 关完成！`;
+    modalTitle.textContent = isLast ? '全部通关！' : '第 ' + currentLevel + ' 关完成！';
     modalStars.textContent = starStr;
     modalDesc.textContent = isLast
-      ? `恭喜你完成了全部 ${GAME_DATA.length} 关！错误 ${wrongCount} 次。`
-      : `错误 ${wrongCount} 次 · 共 ${totalPairs} 对全部配对成功！`;
+      ? '恭喜你完成了全部 ' + GAME_DATA.length + ' 关！错误 ' + wrongCount + ' 次。'
+      : '错误 ' + wrongCount + ' 次 · 共 ' + totalPairs + ' 对全部配对成功！';
     modalBtn1.textContent = isLast ? '回到首页' : '下一关 ▶';
     modalBtn1.onclick = function () {
       closeModal();
-      if (isLast) {
-        renderStartScreen();
-      } else {
-        enterLevel(currentLevel + 1);
-      }
+      if (isLast) renderStartScreen(); else enterLevel(currentLevel + 1);
     };
     modalBtn2.textContent = '返回选关';
-    modalBtn2.onclick = function () {
-      closeModal();
-      renderLevelSelect();
-    };
+    modalBtn2.onclick = function () { closeModal(); renderLevelSelect(); };
 
     showModal();
     if (stars >= 2) spawnConfetti();
   }
 
   // ===== Modal / Confetti =====
-
   function showModal() { modal.classList.add('show'); }
   function closeModal() { modal.classList.remove('show'); }
 
   function spawnConfetti() {
-    const colors = ['#6c5ce7','#00b894','#fdcb6e','#e74c3c','#0984e3','#e84393'];
-    for (let i = 0; i < 40; i++) {
-      const el = document.createElement('div');
+    var colors = ['#6c5ce7','#00b894','#fdcb6e','#e74c3c','#0984e3','#e84393'];
+    for (var i = 0; i < 40; i++) {
+      var el = document.createElement('div');
       el.className = 'confetti';
       el.style.left = Math.random() * 100 + 'vw';
       el.style.background = colors[Math.floor(Math.random() * colors.length)];
@@ -475,29 +428,35 @@
   }
 
   // ===== 开始游戏 =====
-
   function startGame() {
-    const progress = UserManager.getProgress();
-    const completed = progress.completed || [];
-    const maxCompleted = completed.length > 0 ? Math.max.apply(null, completed) : 0;
-    const target = Math.min(maxCompleted + 1, GAME_DATA.length);
-    enterLevel(target);
+    var prog = UserManager.getProgress();
+    var completed = prog.completed || [];
+    var maxCompleted = completed.length > 0 ? Math.max.apply(null, completed) : 0;
+    enterLevel(Math.min(maxCompleted + 1, GAME_DATA.length));
   }
 
-  // ===== 键盘支持 =====
-
+  // ===== 键盘 =====
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
-      if (modal.classList.contains('show')) {
-        closeModal();
-      } else if (currentLevel !== null) {
-        renderLevelSelect();
-      }
+      if (modal.classList.contains('show')) closeModal();
+      else if (currentLevel !== null) renderLevelSelect();
     }
   });
 
   // ===== 初始化 =====
-
-  showLogin();
+  // 仅当关键 DOM 元素存在时才启动（避免被非浏览器环境加载时报错）
+  if (loginScreen && app && usernameInput && loginBtn) {
+    setSyncStatus('正在同步数据...');
+    UserManager.refresh().then(function () {
+      setSyncStatus('✓ 数据已同步');
+      setTimeout(function () { setSyncStatus(''); }, 2000);
+      if (UserManager.isLoggedIn()) showApp();
+      else showLogin();
+    }).catch(function () {
+      setSyncStatus('⚠ 离线模式（本地缓存）');
+      if (UserManager.isLoggedIn()) showApp();
+      else showLogin();
+    });
+  }
 
 })(window);
