@@ -340,19 +340,68 @@
     currentLevelData = lv;
     totalPairs = lv.sentences.length;
 
-    leftItems = []; rightItems = [];
+    // ===== 构建配对数据，对重复词义自动编号 =====
+    // 第一步：统计每个词义出现次数
+    var meaningCount = {};
+    for (var s = 0; s < lv.sentences.length; s++) {
+      var m = lv.sentences[s][1];
+      meaningCount[m] = (meaningCount[m] || 0) + 1;
+    }
+
+    // 第二步：为每个句子分配词义文本（重复的加 ①②③ 后缀）
+    var meaningIndex = {}; // 记录每个词义当前分配到第几个
+    var leftToRight = [];  // idx → rightId
+
+    leftItems = [];
+    rightItems = [];
+
     for (var idx = 0; idx < lv.sentences.length; idx++) {
       var item = lv.sentences[idx];
-      var leftId = 'L' + idx, rightId = 'R' + idx;
-      leftItems.push({ id: leftId, text: item[0], answerId: rightId, matched: false });
-      rightItems.push({ id: rightId, text: item[1], matchId: leftId, matched: false });
+      var rawMeaning = item[1];
+      var leftId = 'L' + idx;
+      var rightId = 'R' + idx;
+
+      // 计算这个词义在本次关卡中的序号
+      var seq = meaningIndex[rawMeaning] || 0;
+      meaningIndex[rawMeaning] = seq + 1;
+
+      // 显示文本：如果词义出现 >1 次，加 ①②③…
+      var displayMeaning = rawMeaning;
+      if (meaningCount[rawMeaning] > 1) {
+        displayMeaning = rawMeaning + ' ' + toSuperscript(seq + 1);
+      }
+
+      leftItems.push({
+        id: leftId,
+        text: item[0],
+        answerId: rightId,
+        matched: false
+      });
+
+      rightItems.push({
+        id: rightId,
+        text: displayMeaning,
+        rawText: rawMeaning,    // 保留原文，便于调试
+        matchId: leftId,
+        matched: false
+      });
     }
+
+    // 第三步：打乱（保持左右配对关系不变）
     leftItems = shuffle(leftItems);
     rightItems = shuffle(rightItems);
+
     selectedLeft = null; selectedRight = null;
     matchedCount = 0; wrongCount = 0; isProcessing = false;
 
     renderGameScreen();
+  }
+
+  // 数字 → 上标圆圈字符（①②③④⑤…）
+  function toSuperscript(n) {
+    var map = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩'];
+    if (n <= map.length) return map[n - 1];
+    return '(' + n + ')';
   }
 
   // ===== 游戏页 =====
@@ -392,7 +441,10 @@
     for (var b = 0; b < rightItems.length; b++) {
       var ri = rightItems[b];
       var cls2 = 'match-item' + (ri.matched ? ' matched' : '') + (selectedRight === ri.id ? ' selected' : '');
-      html += '<div class="' + cls2 + '" data-id="' + ri.id + '" data-side="right"><div>' + escapeHtml(ri.text) + '</div></div>';
+      // 如果词义含空格+上标圆圈字符，把圆圈部分用 <sup> 包裹
+      var displayText = escapeHtml(ri.text);
+      displayText = displayText.replace(/ (①|②|③|④|⑤|⑥|⑦|⑧|⑨|⑩)$/, ' <sup class="meaning-suffix">$1</sup>');
+      html += '<div class="' + cls2 + '" data-id="' + ri.id + '" data-side="right"><div>' + displayText + '</div></div>';
     }
 
     html += '</div></div></div></div>';

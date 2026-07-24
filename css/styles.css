@@ -349,6 +349,12 @@ body {
 .action-btn:hover { border-color: var(--primary); color: var(--primary-light); transform: translateY(-1px); }
 .action-btn:active { transform: translateY(0); }
 
+/* ===== 词义编号上标（重复词义用 ①②③ 区分） ===== */
+.meaning-suffix {
+  font-size: 0.75em; color: var(--primary-light); font-weight: 700;
+  margin-left: 2px; vertical-align: super;
+}
+
 /* ===== Sync status ===== */
 .sync-status {
   position: fixed; bottom: 12px; right: 16px; font-size: 11px;
