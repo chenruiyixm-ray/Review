@@ -1,163 +1,49 @@
-# 文言实词配对大挑战
+# 📜 文言实词配对大挑战
 
-65关 · 300个文言实词 · 配对游戏
+> 300个高中必背文言实词 · 65关逐层突破 · 全部解锁
+
+## 项目简介
+
+一个交互式文言文实词配对游戏，覆盖高考大纲要求的 300 个核心文言实词。左侧展示文言例句（加点字高亮），右侧展示释义，通过拖拽配对的方式帮助记忆。
+
+## 玩法
+
+1. 在关卡选择画面点击任意关卡进入
+2. 左侧为文言例句（含加点字高亮），右侧为对应释义
+3. 点击一个例句，再点击一个释义进行配对
+4. 配对正确会标记为绿色 ✓，错误会有红色抖动反馈
+5. 全部配对成功后，根据错误次数获得 1~3 ⭐ 评级
+6. 三颗星以上触发彩纸庆祝效果 🎉
 
 ## 文件结构
 
 ```
-wenyan-game/
-├── index.html              入口页面（含 SVG favicon）
-├── README.md               本文档
-├── css/
-│   └── styles.css          暗色主题样式
-├── js/
-│   ├── game-data.js        65关游戏数据（53KB）
-│   ├── user-manager.js     账号·进度·userdata 同步
-│   └── game-engine.js      游戏引擎·UI·配对逻辑
-└── userdata                用户数据文件（服务器上，自动生成）
+classical-chinese-game/
+├── index.html       # 页面骨架
+├── style.css        # 全部样式（暗色主题、动画、响应式）
+├── game-data.js     # 65关全部数据（300个实词 + 例句 + 释义）
+├── game.js          # 游戏逻辑（选关、配对、进度保存、彩蛋）
+└── README.md        # 本文件
 ```
 
-## 部署说明
+## 使用方式
 
-### 纯静态托管（GitHub Pages / Vercel 等）
+**直接打开** `index.html` 即可开始游戏，无需服务器。
 
-直接将 `wenyan-game/` 目录部署即可。
+所有关卡默认全部解锁，可以自由选择任意关卡挑战。
 
-> ⚠️ **注意**：纯静态环境**不支持服务端写入**。此时 userdata 会降级为
-> 仅保存在浏览器 localStorage，换设备/清缓存会丢失。
-> 如需跨设备同步，请使用下面的后端方案。
+## 技术细节
 
-### 带后端（推荐，支持 userdata 文件持久化）
+- **纯前端**：HTML5 + CSS3 + ES6，零外部依赖
+- **持久化**：通过 `localStorage` 保存通关记录和统计数据
+- **暗色主题**：紫色/绿色/金色渐变配色，深色背景
+- **响应式**：手机和桌面均可流畅操作
+- **关卡数据**：65级共 300+ 实词，按常见程度和难度分层
 
-需要服务器支持 **PHP / Node / Python** 等任意一种后端。
-游戏通过两个 HTTP 请求读写 `userdata` 文件：
+## 数据来源
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `GET`  | `/userdata`  | 返回文件全文（纯文本） |
-| `POST` | `/userdata`  | body 为文件全文，服务端覆盖写入 |
+文言实词选取自高中语文教材及高考大纲常见文言实词汇总，每关包含 4~23 个例句不等，例句均出自经典文献（《史记》《左传》《阿房宫赋》《赤壁赋》等）。
 
-#### 示例：PHP 版接口（`api/userdata.php`）
+## License
 
-```php
-<?php
-header('Content-Type: text/plain; charset=utf-8');
-$file = __DIR__ . '/../userdata';
-
-if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    if (file_exists($file)) {
-        echo file_get_contents($file);
-    }
-    exit;
-}
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $data = file_get_contents('php://input');
-    // 简单校验：每行必须含 = 号
-    $lines = explode("\n", $data);
-    foreach ($lines as $line) {
-        $line = trim($line);
-        if ($line !== '' && strpos($line, '=') === false) {
-            http_response_code(400);
-            echo 'Invalid format';
-            exit;
-        }
-    }
-    file_put_contents($file, $data, LOCK_EX);
-    echo 'OK';
-    exit;
-}
-```
-
-> 把 `index.html` 中 `USERDATA_URL` 改为 `'api/userdata.php'` 即可。
-
-#### 示例：Node.js 版接口（Express）
-
-```js
-const express = require('express');
-const fs = require('fs');
-const app = express();
-app.use(express.text({ type: '*/*' }));
-
-const FILE = './userdata';
-
-app.get('/userdata', (req, res) => {
-  if (fs.existsSync(FILE)) res.send(fs.readFileSync(FILE, 'utf8'));
-  else res.send('');
-});
-
-app.post('/userdata', (req, res) => {
-  fs.writeFileSync(FILE, req.body, 'utf8');
-  res.send('OK');
-});
-
-app.use(express.static('wenyan-game'));
-app.listen(3000);
-```
-
-### userdata 文件格式
-
-纯文本，每行一个用户，`用户名=JSON`：
-
-```
-小明={"completed":[1,2,3],"stats":{"1":{"correct":23,"wrong":2}},"stars":{"1":3},"lastLogin":1718000000}
-小红={"completed":[],"stats":{},"stars":{},"lastLogin":1718000000}
-```
-
-首次部署时创建一个**空文件**即可（或完全不创建，会自动生成）。
-
-## 账号系统
-
-- 输入用户名（无需密码）→ 自动创建 / 登录
-- 每个用户独立进度，互不影响
-- 已登录用户显示为快捷标签，点击即登
-- 进度同时写入 **服务器 userdata** + **本地 localStorage 缓存**
-- 离线时自动降级为本地缓存，恢复网络后自动同步
-
-## 游戏玩法
-
-- 左侧文言文例句（加点字高亮），右侧词义选项
-- 点击一句 + 点击一个词义 = 完成一次配对
-- 正确 → 绿色锁定；错误 → 红色抖动，可重试
-- 每关完成 → 撒花 + ⭐星级评定
-- 进度自动保存，刷新/关闭不丢失
-
-## 重置进度
-
-每个页面底部有「🔄 重置我的进度」按钮（带确认提示），仅清除当前账号数据。
-
-## 导入 / 导出 userdata
-
-游戏开始页和选关页底部各有一组数据管理按钮：
-
-| 按钮 | 说明 |
-|------|------|
-| 💾 导出 userdata | 下载名为 `userdata` 的文件（无后缀，纯文本），包含所有用户数据 |
-| 📂 导入 userdata | 选择本地 `userdata` 文件 → 弹窗选择合并或替换 |
-
-**合并 vs 替换：**
-- **合并**（点确定）：导入文件中的用户覆盖同名用户，本地其他用户保留 → 适合多人汇总
-- **替换**（点取消）：完全用导入文件替换当前所有数据 → 适合从备份恢复
-
-> 💡 **典型用途**：老师可以在服务器上维护一份完整的 `userdata` 文件，
-> 学生下载后导入自己的浏览器即可看到全班进度；反之亦然。
-
-**userdata 文件格式**（纯文本，每行一个用户）：
-
-```
-小明={"completed":[1,2,3],"stats":{"1":{"correct":23,"wrong":2}},"stars":{"1":3},"lastLogin":1718000000}
-小红={"completed":[],"stats":{},"stars":{},"lastLogin":1718000000}
-```
-
-也可以直接在浏览器控制台调用 API：
-
-```js
-// 导出（返回纯文本字符串）
-UserManager.exportData()
-
-// 导入（合并模式）
-UserManager.importData(text, true)
-
-// 导入（替换模式）
-UserManager.importData(text, false)
-```
+MIT — 自由使用、修改、分享。
