@@ -1,6 +1,5 @@
 /* ===== Reset & Base ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
 :root {
   --primary: #6c5ce7;
   --primary-light: #a29bfe;
@@ -19,9 +18,8 @@
   --radius: 12px;
   --transition: all .25s ease;
 }
-
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
@@ -50,67 +48,6 @@ body {
 
 /* ===== Layout ===== */
 .container { max-width: 960px; margin: 0 auto; padding: 20px 16px; }
-.hidden { display: none !important; }
-
-/* ===== Login Screen ===== */
-.login-card {
-  background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px;
-  padding: 52px 40px 44px; text-align: center; box-shadow: var(--shadow);
-  margin-top: 60px; position: relative; overflow: hidden;
-}
-.login-card::before {
-  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-  background: linear-gradient(90deg, var(--primary), var(--accent), var(--secondary));
-}
-.brand-icon { margin-bottom: 16px; }
-.brand-icon svg {
-  filter: drop-shadow(0 4px 12px rgba(108,92,231,.4));
-  animation: iconFloat 3s ease-in-out infinite;
-}
-@keyframes iconFloat {
-  0%,100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
-}
-.login-card h1 {
-  font-size: 26px; font-weight: 800; margin-bottom: 8px;
-  background: linear-gradient(135deg, var(--primary-light), var(--accent));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-.login-card p { color: var(--text-muted); font-size: 14px; margin-bottom: 28px; }
-
-.input-group {
-  display: flex; gap: 12px; max-width: 380px; margin: 0 auto 8px;
-}
-.input-group input {
-  flex: 1; background: var(--bg); border: 2px solid var(--border); border-radius: 30px;
-  padding: 12px 20px; color: var(--text); font-size: 15px; outline: none;
-  transition: var(--transition);
-}
-.input-group input:focus {
-  border-color: var(--primary-light);
-  box-shadow: 0 0 0 3px rgba(108,92,231,.15);
-}
-.input-group button {
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-  color: #fff; border: none; border-radius: 30px; padding: 12px 28px;
-  font-size: 15px; font-weight: 700; cursor: pointer; white-space: nowrap;
-  transition: var(--transition);
-}
-.input-group button:hover {
-  transform: translateY(-2px); box-shadow: 0 6px 20px rgba(108,92,231,.4);
-}
-.error-msg { color: var(--danger); font-size: 13px; min-height: 22px; margin-bottom: 8px; }
-.quick-users {
-  display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 12px;
-}
-.quick-user {
-  background: var(--bg); border: 1px solid var(--border); border-radius: 20px;
-  padding: 6px 18px; font-size: 14px; color: var(--text-muted); cursor: pointer;
-  transition: var(--transition);
-}
-.quick-user:hover { border-color: var(--primary); color: var(--text); transform: translateY(-1px); }
-.login-tip { color: var(--text-muted); font-size: 12px; margin-top: 24px; }
 
 /* ===== Header ===== */
 .header { text-align: center; margin-bottom: 24px; }
@@ -118,11 +55,12 @@ body {
   font-size: 28px; font-weight: 800;
   background: linear-gradient(135deg, var(--primary-light), var(--accent));
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text; margin-bottom: 8px;
+  background-clip: text;
+  margin-bottom: 8px;
 }
 .header p { color: var(--text-muted); font-size: 14px; }
 
-/* ===== Level Select ===== */
+/* ===== Level Select Screen ===== */
 .level-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
   gap: 10px; margin-top: 20px;
@@ -140,8 +78,12 @@ body {
 .level-btn.completed {
   border-color: var(--success); background: rgba(0,184,148,.12); color: var(--success);
 }
-.level-btn.completed::after { content: '✓'; font-size: 12px; color: var(--success); }
-.level-btn.locked { opacity: .4; cursor: not-allowed; }
+.level-btn.completed::after {
+  content: '✓'; font-size: 12px; color: var(--success);
+}
+.level-btn.locked {
+  opacity: .4; cursor: not-allowed;
+}
 .level-btn.current {
   border-color: var(--accent); box-shadow: 0 0 15px rgba(253,203,110,.3);
   animation: pulse 2s ease-in-out infinite;
@@ -180,25 +122,6 @@ body {
 .back-btn:hover { background: var(--bg-card-hover); border-color: var(--primary); }
 .level-title { font-size: 18px; font-weight: 700; }
 .level-chars { font-size: 13px; color: var(--text-muted); }
-
-/* ===== User Bar ===== */
-.user-bar { display: flex; align-items: center; gap: 10px; }
-.username-tag {
-  background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px;
-  padding: 5px 16px; font-size: 13px; color: var(--text-muted);
-  display: flex; align-items: center; gap: 6px;
-}
-.username-tag::before {
-  content: ''; width: 8px; height: 8px; border-radius: 50%;
-  background: var(--success); box-shadow: 0 0 6px var(--success);
-}
-.logout-btn {
-  background: none; border: 1px solid var(--border); color: var(--text-muted);
-  width: 34px; height: 34px; border-radius: 50%; cursor: pointer; font-size: 15px;
-  display: flex; align-items: center; justify-content: center; transition: var(--transition);
-}
-.logout-btn:hover { border-color: var(--danger); color: var(--danger); }
-
 .game-stats { display: flex; gap: 16px; font-size: 14px; }
 .stat-item { display: flex; align-items: center; gap: 4px; }
 .stat-value { font-weight: 700; }
@@ -249,7 +172,9 @@ body {
   25% { transform: translateX(-6px); }
   75% { transform: translateX(6px); }
 }
-.match-item .highlight { color: var(--accent); font-weight: 700; font-size: 15px; }
+.match-item .highlight {
+  color: var(--accent); font-weight: 700; font-size: 15px;
+}
 .match-item .sentence { margin-top: 2px; }
 .match-arrow {
   display: flex; align-items: center; justify-content: center;
@@ -261,7 +186,7 @@ body {
   50% { opacity: 1; transform: scale(1.2); }
 }
 
-/* ===== Toast ===== */
+/* ===== Feedback Toast ===== */
 .toast {
   position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-80px);
   padding: 12px 28px; border-radius: 30px; font-size: 15px; font-weight: 600;
@@ -283,11 +208,6 @@ body {
   background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px;
   padding: 36px 32px; text-align: center; max-width: 420px; width: 90%;
   box-shadow: 0 20px 60px rgba(0,0,0,.5); animation: modalIn .35s ease;
-  position: relative; overflow: hidden;
-}
-.modal::before {
-  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-  background: linear-gradient(90deg, var(--primary), var(--accent), var(--secondary));
 }
 @keyframes modalIn {
   from { transform: scale(.85); opacity: 0; }
@@ -319,6 +239,7 @@ body {
 }
 
 /* ===== Utility ===== */
+.hidden { display: none !important; }
 .fade-in { animation: fadeIn .3s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -333,30 +254,10 @@ body {
   font-size: 17px; font-weight: 800; cursor: pointer; transition: var(--transition);
 }
 .start-btn:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(108,92,231,.5); }
+
 .reset-btn {
   background: none; border: 1px solid var(--border); color: var(--text-muted);
   padding: 8px 16px; border-radius: 20px; font-size: 13px; cursor: pointer;
   margin-top: 16px; transition: var(--transition);
 }
 .reset-btn:hover { border-color: var(--danger); color: var(--danger); }
-
-/* ===== Action Buttons (Export / Import) ===== */
-.action-btn {
-  background: none; border: 1px solid var(--border); color: var(--text-muted);
-  padding: 8px 18px; border-radius: 20px; font-size: 13px; cursor: pointer;
-  transition: var(--transition); display: inline-flex; align-items: center; gap: 4px;
-}
-.action-btn:hover { border-color: var(--primary); color: var(--primary-light); transform: translateY(-1px); }
-.action-btn:active { transform: translateY(0); }
-
-/* ===== 词义编号上标（重复词义用 ①②③ 区分） ===== */
-.meaning-suffix {
-  font-size: 0.75em; color: var(--primary-light); font-weight: 700;
-  margin-left: 2px; vertical-align: super;
-}
-
-/* ===== Sync status ===== */
-.sync-status {
-  position: fixed; bottom: 12px; right: 16px; font-size: 11px;
-  color: var(--text-muted); opacity: .6; z-index: 50;
-}
