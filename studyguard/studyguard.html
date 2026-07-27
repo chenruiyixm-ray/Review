@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>摄像头定时截图 & 打包下载</title>
+<!-- 引入 JSZip 库 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #1a1a2e;
+    color: #eee;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  .container { max-width: 900px; margin: 0 auto; }
+  h1 { text-align: center; margin-bottom: 20px; font-size: 1.5rem; }
+
+  .video-wrap {
+    display: flex; justify-content: center; margin-bottom: 20px;
+  }
+  video {
+    width: 100%; max-width: 640px; aspect-ratio: 4/3;
+    background: #000; border-radius: 8px; border: 2px solid #333;
+  }
+
+  .controls {
+    display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  button {
+    padding: 10px 24px; font-size: 1rem; border: none; border-radius: 6px;
+    cursor: pointer; transition: opacity .2s;
+  }
+  button:hover { opacity: .85; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-start { background: #4ecca3; color: #1a1a2e; font-weight: bold; }
+  .btn-stop   { background: #e94560; color: #fff; font-weight: bold; }
+  .btn-download { background: #f9a826; color: #1a1a2e; font-weight: bold; }
+
+  .settings {
+    display: flex; gap: 16px; justify-content: center; align-items: center;
+    flex-wrap: wrap; margin-bottom: 20px; font-size: .9rem;
+  }
+  .settings label { display: flex; align-items: center; gap: 6px; }
+  .settings input {
+    width: 80px; padding: 4px 8px; border-radius: 4px; border: none;
+    background: #333; color: #eee; text-align: center;
+  }
+
+  .status {
+    text-align: center; margin-bottom: 16px; font-size: .9rem; color: #aaa;
+  }
+  .status .count { color: #4ecca3; font-weight: bold; }
+
+  .preview {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+  }
+  .preview img {
+    width: 120px; height: 90px; object-fit: cover;
+    border-radius: 4px; border: 1px solid #444;
+  }
+
+  .progress-bar {
+    width: 100%; max-width: 400px; height: 8px; margin: 10px auto;
+    background: #333; border-radius: 4px; overflow: hidden; display: none;
+  }
+  .progress-bar .fill {
+    height: 100%; width: 0%; background: #4ecca3;
+    transition: width .3s;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📷 摄像头定时截图</h1>
+
+  <div class="video-wrap">
+    <video id="video" autoplay muted playsinline></video>
+  </div>
+
+  <div class="settings">
+    <label>间隔(秒)
+      <input id="intervalInput" type="number" min="1" max="60" value="3">
+    </label>
+    <label>图片质量
+      <input id="qualityInput" type="number" min="0.1" max="1" step="0.1" value="0.8">
+    </label>
+  </div>
+
+  <div class="controls">
+    <button id="btnStart" class="btn-start">▶ 开始</button>
+    <button id="btnStop" class="btn-stop" disabled>■ 结束</button>
+    <button id="btnDownload" class="btn-download" disabled>⬇ 下载 ZIP</button>
+  </div>
+
+  <div class="status">
+    已截图 <span class="count" id="count">0</span> 张
+  </div>
+
+  <div class="progress-bar" id="progressBar">
+    <div class="fill" id="progressFill"></div>
+  </div>
+
+  <div class="preview" id="preview"></div>
+</div>
+
+<script>
+const video       = document.getElementById('video');
+const btnStart    = document.getElementById('btnStart');
+const btnStop     = document.getElementById('btnStop');
+const btnDownload = document.getElementById('btnDownload');
+const intervalIn  = document.getElementById('intervalInput');
+const qualityIn   = document.getElementById('qualityInput');
+const countEl     = document.getElementById('count');
+const previewEl   = document.getElementById('preview');
+const progressBar = document.getElementById('progressBar');
+const progressFill= document.getElementById('progressFill');
+
+const canvas = document.createElement('canvas');
+const ctx    = canvas.getContext('2d');
+
+let stream     = null;
+let intervalId = null;
+let shots      = [];   // 存放 { name, blob }
+
+/* ---------- 启动摄像头 ---------- */
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: 1280, height: 720 },
+      audio: false
+    });
+    video.srcObject = stream;
+  } catch (err) {
+    alert('无法打开摄像头：' + err.message);
+  }
+}
+
+/* ---------- 截图 ---------- */
+function captureFrame() {
+  if (!video.videoWidth) return;
+
+  canvas.width  = video.videoWidth;
+  canvas.height = video.videoHeight;
+  ctx.drawImage(video, 0, 0);
+
+  const quality = parseFloat(qualityIn.value) || 0.8;
+  const ts = new Date();
+  const name = `shot_${pad(ts.getHours())}${pad(ts.getMinutes())}${pad(ts.getSeconds())}_${Date.now()}.jpg`;
+
+  canvas.toBlob(blob => {
+    shots.push({ name, blob });
+
+    // 缩略图预览
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(blob);
+    previewEl.prepend(img);
+
+    countEl.textContent = shots.length;
+  }, 'image/jpeg', quality);
+}
+
+/* ---------- 开始 ---------- */
+btnStart.addEventListener('click', async () => {
+  if (!stream) await startCamera();
+  if (!stream) return;
+
+  const sec = Math.max(1, parseInt(intervalIn.value) || 3) * 1000;
+
+  // 先拍一张
+  video.addEventListener('loadeddata', function once() {
+    captureFrame();
+    video.removeEventListener('loadeddata', once);
+  });
+
+  intervalId = setInterval(captureFrame, sec);
+
+  btnStart.disabled    = true;
+  btnStop.disabled     = false;
+  btnDownload.disabled = true;
+});
+
+/* ---------- 结束 ---------- */
+btnStop.addEventListener('click', () => {
+  clearInterval(intervalId);
+  intervalId = null;
+
+  if (stream) {
+    stream.getTracks().forEach(t => t.stop());
+    stream = null;
+  }
+  video.srcObject = null;
+
+  btnStart.disabled    = false;
+  btnStop.disabled     = true;
+  btnDownload.disabled = shots.length === 0;
+});
+
+/* ---------- 下载 ZIP ---------- */
+btnDownload.addEventListener('click', async () => {
+  if (!shots.length) return;
+
+  btnDownload.disabled = true;
+  progressBar.style.display = 'block';
+  progressFill.style.width = '0%';
+
+  const zip = new JSZip();
+  const folder = zip.folder('screenshots');
+
+  // 逐张加入 zip
+  shots.forEach((s, i) => {
+    folder.file(s.name, s.blob);
+    progressFill.style.width = ((i + 1) / shots.length * 50).toFixed(0) + '%';
+  });
+
+  // 生成 zip
+  progressFill.style.width = '70%';
+  const blob = await zip.generateAsync({ type: 'blob' }, meta => {
+    progressFill.style.width = (70 + meta.percent * 0.3).toFixed(0) + '%';
+  });
+
+  // 触发下载
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `screenshots_${Date.now()}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  progressFill.style.width = '100%';
+  setTimeout(() => {
+    progressBar.style.display = 'none';
+    progressFill.style.width = '0%';
+  }, 800);
+});
+
+/* ---------- 工具 ---------- */
+function pad(n) { return String(n).padStart(2, '0'); }
+</script>
+</body>
+</html>
